@@ -3,8 +3,8 @@ package runner
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -23,13 +23,32 @@ type TestCase func(ctx context.Context, url string) error
 type Options struct {
 	SortSuites bool
 	SortTests  bool
+	Screenshot ScreenshotOptions
+}
+
+// ScreenshotOptions controls screenshot behavior.
+type ScreenshotOptions struct {
+	OutDir         string
+	OnFailure      bool
+	BeforeTestCase bool
+	AfterTestCase  bool
+	BeforeGroup    bool
+	AfterGroup     bool
+	PostProcessing PostProcessingOptions
+}
+
+type PostProcessingOptions struct {
+	OutDir       string
+	RemoveImages bool
+	CreateGIF    bool
 }
 
 // Suites runs the given suites.
 func Suites(url string, suites TestSuites, opts Options) {
 	suiteNames := getExecutionSuiteNames(suites, opts)
+	wg := &sync.WaitGroup{}
 
-	for _, suiteName := range suiteNames {
+	for id, suiteName := range suiteNames {
 		suite := suites[suiteName]
 
 		fmt.Println()
@@ -37,11 +56,38 @@ func Suites(url string, suites TestSuites, opts Options) {
 		fmt.Println("----------------------------------------------------")
 		fmt.Printf("Test runSuite: %s\n", suiteName)
 		fmt.Println("----------------------------------------------------")
-		runSuite(url, suite, opts)
+
+		if !runSuite(id, url, suiteName, suite, opts, wg) {
+			fmt.Println("suite failed, aborting")
+
+			break
+		}
 	}
+
+	fmt.Println("waiting for goroutines to finish")
+	wg.Wait()
+	fmt.Println("goroutines finished")
 }
 
-func runSuite(url string, suite TestSuite, opts Options) {
+type TestContext struct {
+	ID                int
+	SuiteName         string
+	TestName          string
+	TestStep          int
+	ScreenshotOptions ScreenshotOptions
+}
+
+type testContextKey struct{}
+
+func GetTestContext(ctx context.Context) TestContext {
+	return ctx.Value(testContextKey{}).(TestContext)
+}
+
+func SetTestContext(ctx context.Context, testContext TestContext) context.Context {
+	return context.WithValue(ctx, testContextKey{}, testContext)
+}
+
+func runSuite(id int, url, suiteName string, suite TestSuite, opts Options, wg *sync.WaitGroup) bool {
 	testStartTime := time.Now()
 	s := 0
 	f := 0
@@ -55,7 +101,7 @@ func runSuite(url string, suite TestSuite, opts Options) {
 	results := make(testResults, len(suite))
 	testNames := getExecutionTestNames(suite, opts)
 
-	for _, testName := range testNames {
+	for testIdx, testName := range testNames {
 		testCase := suite[testName]
 
 		fmt.Println("----------------------------------------------------")
@@ -64,15 +110,35 @@ func runSuite(url string, suite TestSuite, opts Options) {
 
 		results.Start(testName)
 
+		testCtx := TestContext{
+			ID:                ((id + 1) * 1000) + (testIdx + 1),
+			SuiteName:         suiteName,
+			TestName:          testName,
+			ScreenshotOptions: opts.Screenshot,
+		}
+		ctx = SetTestContext(ctx, testCtx)
+
 		err := testCase(ctx, url)
 		if err != nil {
 			f++
 
 			results.End(testName, false, err)
-			takeFailureScreenshot(ctx, testName, err)
+
+			if opts.Screenshot.OnFailure {
+				takeFailureScreenshot(ctx, opts.Screenshot.OutDir, testName, err)
+			}
 		} else {
 			s++
 			results.End(testName, true, nil)
+
+			if opts.Screenshot.PostProcessing.CreateGIF {
+				fmt.Println("Creating gif")
+				wg.Add(1)
+				go func() {
+					createGIF(testCtx.ID, testCtx.SuiteName, testCtx.TestName, opts.Screenshot)
+					wg.Done()
+				}()
+			}
 		}
 
 		fmt.Println("----------------------------------------------------")
@@ -93,9 +159,7 @@ func runSuite(url string, suite TestSuite, opts Options) {
 
 	results.GetFailed().PrintErrors()
 
-	if len(results.GetFailed()) > 0 {
-		os.Exit(1)
-	}
+	return len(results.GetFailed()) == 0
 }
 
 func getExecutionSuiteNames(suites TestSuites, opts Options) []string {

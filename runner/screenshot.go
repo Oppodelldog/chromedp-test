@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"os"
+	"path"
+	"path/filepath"
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
@@ -15,9 +18,12 @@ import (
 
 const quality = 90
 
-func takeFailureScreenshot(ctx context.Context, testID string, err error) {
+const permDir = 0777
+const permFile = 0600
+
+func takeFailureScreenshot(ctx context.Context, dir, testID string, err error) {
 	if err != nil {
-		var fileName = "FAIL-" + testID + ".png"
+		var fileName = path.Join(dir, "FAIL-"+testID+".png")
 
 		errScreenShot := chromedp.Run(ctx, Screenshot(fileName))
 		if errScreenShot != nil {
@@ -50,7 +56,15 @@ func take(ctx context.Context, targetFile string) {
 		log.Fatal(err)
 	}
 
-	if err := ioutil.WriteFile(targetFile, buf, 0600); err != nil {
+	p := filepath.Dir(targetFile)
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		err = os.Mkdir(p, permDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if err := ioutil.WriteFile(targetFile, buf, permFile); err != nil {
 		log.Fatal(err)
 	}
 }

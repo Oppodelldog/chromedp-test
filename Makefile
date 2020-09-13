@@ -1,5 +1,5 @@
 setup: ## Install tools
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s v1.30.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s v1.31.0
 	mkdir .bin || mv /bin/golangci-lint ${GOPATH}/golangci-lint && rm -rf bin
 
 lint: ## Run the linters
