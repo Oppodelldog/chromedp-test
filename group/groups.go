@@ -24,6 +24,10 @@ type groupAction struct {
 }
 
 func (g groupAction) Do(ctx context.Context) error {
+	testContext := runner.MustGetTestContext(ctx)
+	testContext.GroupName = g.title
+	runner.SetTestContext(ctx, testContext)
+
 	err := Text(g.title).Do(ctx)
 	if err != nil {
 		return err
@@ -45,10 +49,14 @@ type screenshotAction struct {
 }
 
 func (s screenshotAction) Do(ctx context.Context) error {
+
 	var err error
 
 	testContext, newCtx := increaseTestContextStep(ctx)
-	if testContext.ScreenshotOptions.BeforeGroup {
+	screenshotOptions := testContext.ScreenshotOptions
+	if screenshotOptions.BeforeGroup {
+		testContext.ActionName = "before"
+		runner.SetTestContext(ctx, testContext)
 		err = runner.Screenshot(screenshotFilename(s.title, testContext, "1-before")).Do(newCtx)
 		if err != nil {
 			return err
@@ -56,16 +64,41 @@ func (s screenshotAction) Do(ctx context.Context) error {
 	}
 
 	for _, action := range s.actions {
+		testContext, newCtx := increaseTestContextStep(ctx)
+		testContext.ActionName = fmt.Sprintf("before %T", action)
+		runner.SetTestContext(ctx, testContext)
+
+		if screenshotOptions.BeforeAction {
+			err = runner.Screenshot(screenshotFilename(s.title, testContext, testContext.ActionName+"-before")).Do(newCtx)
+			if err != nil {
+				fmt.Println("err in screenshot: ", err.Error())
+				return nil
+			}
+		}
+
 		err = action.Do(newCtx)
 		if err != nil {
 			break
 		}
+
+		if screenshotOptions.AfterAction {
+			testContext.ActionName = fmt.Sprintf("after %T", action)
+			runner.SetTestContext(ctx, testContext)
+			err = runner.Screenshot(screenshotFilename(s.title, testContext, testContext.ActionName+"-before")).Do(newCtx)
+			if err != nil {
+				fmt.Println("err in screenshot: ", err.Error())
+				return nil
+			}
+		}
 	}
 
-	if testContext.ScreenshotOptions.AfterGroup {
+	if screenshotOptions.AfterGroup {
+		testContext.ActionName = "after"
+		runner.SetTestContext(ctx, testContext)
 		err = runner.Screenshot(screenshotFilename(s.title, testContext, "2-after")).Do(newCtx)
 		if err != nil {
-			return err
+			fmt.Println("err in screenshot: ", err.Error())
+			return nil
 		}
 	}
 
@@ -112,7 +145,7 @@ func normalizeFilename(x string) string {
 }
 
 func increaseTestContextStep(ctx context.Context) (runner.TestContext, context.Context) {
-	testContext := runner.GetTestContext(ctx)
+	testContext := runner.MustGetTestContext(ctx)
 	testContext.TestStep++
 	ctx = runner.SetTestContext(ctx, testContext)
 

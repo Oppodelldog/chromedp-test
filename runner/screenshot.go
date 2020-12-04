@@ -46,26 +46,38 @@ type takeScreenShotAction struct {
 func (a takeScreenShotAction) Do(ctx context.Context) error {
 	take(ctx, a.targetFile)
 
-	return nil
+	testContext := MustGetTestContext(ctx)
+
+	return addTitle(
+		a.targetFile,
+		a.targetFile,
+		Title{
+			SuiteName:  testContext.SuiteName,
+			CaseName:   testContext.TestName,
+			GroupName:  testContext.GroupName,
+			ActionName: testContext.ActionName,
+			Step:       testContext.TestStep,
+		},
+	)
 }
 
 func take(ctx context.Context, targetFile string) {
 	var buf []byte
 
 	if err := chromedp.Run(ctx, fullScreenshot(quality, &buf)); err != nil {
-		log.Fatal(err)
+		log.Fatalf("error taking full screenshot: %v", err)
 	}
 
 	p := filepath.Dir(targetFile)
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		err = os.Mkdir(p, permDir)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("error creating screenshot dir: %v", err)
 		}
 	}
 
 	if err := ioutil.WriteFile(targetFile, buf, permFile); err != nil {
-		log.Fatal(err)
+		log.Fatalf("error writing screenshot file: %v", err)
 	}
 }
 

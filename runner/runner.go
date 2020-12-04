@@ -34,6 +34,8 @@ type ScreenshotOptions struct {
 	AfterTestCase  bool
 	BeforeGroup    bool
 	AfterGroup     bool
+	BeforeAction   bool
+	AfterAction    bool
 	PostProcessing PostProcessingOptions
 }
 
@@ -73,13 +75,15 @@ type TestContext struct {
 	ID                int
 	SuiteName         string
 	TestName          string
+	GroupName         string
+	ActionName        string
 	TestStep          int
 	ScreenshotOptions ScreenshotOptions
 }
 
 type testContextKey struct{}
 
-func GetTestContext(ctx context.Context) TestContext {
+func MustGetTestContext(ctx context.Context) TestContext {
 	return ctx.Value(testContextKey{}).(TestContext)
 }
 
