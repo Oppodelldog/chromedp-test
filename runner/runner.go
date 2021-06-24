@@ -2,9 +2,9 @@ package runner
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"github.com/Oppodelldog/chromedp-test"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -24,6 +24,7 @@ type Options struct {
 	SortSuites bool
 	SortTests  bool
 	Screenshot ScreenshotOptions
+	Timeout    time.Duration
 }
 
 // ScreenshotOptions controls screenshot behavior.
@@ -48,27 +49,22 @@ type PostProcessingOptions struct {
 // Suites runs the given suites.
 func Suites(url string, suites TestSuites, opts Options) {
 	suiteNames := getExecutionSuiteNames(suites, opts)
-	wg := &sync.WaitGroup{}
 
 	for id, suiteName := range suiteNames {
 		suite := suites[suiteName]
 
-		fmt.Println()
-		fmt.Println()
-		fmt.Println("----------------------------------------------------")
-		fmt.Printf("Test runSuite: %s\n", suiteName)
-		fmt.Println("----------------------------------------------------")
+		chromedptest.Printf("\n")
+		chromedptest.Printf("\n")
+		chromedptest.Printf("----------------------------------------------------\n")
+		chromedptest.Printf("Test runSuite: %s\n", suiteName)
+		chromedptest.Printf("----------------------------------------------------\n")
 
-		if !runSuite(id, url, suiteName, suite, opts, wg) {
-			fmt.Println("suite failed, aborting")
+		if !runSuite(id, url, suiteName, suite, opts) {
+			chromedptest.Printf("suite failed, aborting\n")
 
 			break
 		}
 	}
-
-	fmt.Println("waiting for goroutines to finish")
-	wg.Wait()
-	fmt.Println("goroutines finished")
 }
 
 type TestContext struct {
@@ -87,20 +83,14 @@ func MustGetTestContext(ctx context.Context) TestContext {
 	return ctx.Value(testContextKey{}).(TestContext)
 }
 
-func SetTestContext(ctx context.Context, testContext TestContext) context.Context {
+func SetTestContextData(ctx context.Context, testContext TestContext) context.Context {
 	return context.WithValue(ctx, testContextKey{}, testContext)
 }
 
-func runSuite(id int, url, suiteName string, suite TestSuite, opts Options, wg *sync.WaitGroup) bool {
+func runSuite(id int, url, suiteName string, suite TestSuite, opts Options) bool {
 	testStartTime := time.Now()
 	s := 0
 	f := 0
-
-	alloCtx, cancelAllocator := getAllocator()
-	defer cancelAllocator()
-
-	ctx, cancel := chromedp.NewContext(alloCtx)
-	defer cancel()
 
 	results := make(testResults, len(suite))
 	testNames := getExecutionTestNames(suite, opts)
@@ -108,27 +98,33 @@ func runSuite(id int, url, suiteName string, suite TestSuite, opts Options, wg *
 	for testIdx, testName := range testNames {
 		testCase := suite[testName]
 
-		fmt.Println("----------------------------------------------------")
-		fmt.Printf("Case: %s\n", testName)
-		fmt.Println("----------------------------------------------------")
+		chromedptest.Printf("----------------------------------------------------\n")
+		chromedptest.Printf("Case: %s\n", testName)
+		chromedptest.Printf("----------------------------------------------------\n")
 
 		results.Start(testName)
 
-		testCtx := TestContext{
+		alloCtx, cancelAllocator := getAllocator()
+		testCtx, dpCancel := chromedp.NewContext(alloCtx)
+
+		testCtxData := TestContext{
 			ID:                ((id + 1) * 1000) + (testIdx + 1),
 			SuiteName:         suiteName,
 			TestName:          testName,
 			ScreenshotOptions: opts.Screenshot,
 		}
-		ctx = SetTestContext(ctx, testCtx)
-
+		testCtx = SetTestContextData(testCtx, testCtxData)
+		to := opts.Timeout
+		if to == 0 {
+			to = time.Minute
+		}
+		ctx, cancel := context.WithTimeout(testCtx, to)
 		err := testCase(ctx, url)
 		if err != nil {
 			f++
 
 			results.End(testName, false, err)
-
-			if opts.Screenshot.OnFailure {
+			if opts.Screenshot.OnFailure && err != nil && !errors.Is(err, context.DeadlineExceeded) {
 				takeFailureScreenshot(ctx, opts.Screenshot.OutDir, testName, err)
 			}
 		} else {
@@ -136,30 +132,29 @@ func runSuite(id int, url, suiteName string, suite TestSuite, opts Options, wg *
 			results.End(testName, true, nil)
 
 			if opts.Screenshot.PostProcessing.CreateGIF {
-				fmt.Println("Creating gif")
-				wg.Add(1)
-				go func() {
-					createGIF(testCtx.ID, testCtx.SuiteName, testCtx.TestName, opts.Screenshot)
-					wg.Done()
-				}()
+				chromedptest.Printf("Creating gif\n")
+				createGIF(testCtxData.ID, testCtxData.SuiteName, testCtxData.TestName, opts.Screenshot)
 			}
 		}
 
-		fmt.Println("----------------------------------------------------")
+		chromedptest.Printf("----------------------------------------------------\n")
 
 		if !results.GetSuccess(testName) {
-			fmt.Printf("Error   : %v\n", err)
+			chromedptest.Printf("Error   : %v\n", err)
 		}
 
-		fmt.Printf("Success : %v\n", results.GetSuccess(testName))
-		fmt.Printf("Duration: %v\n", results.GetDuration(testName))
-		fmt.Println("----------------------------------------------------")
+		chromedptest.Printf("Success : %v\n", results.GetSuccess(testName))
+		chromedptest.Printf("Duration: %v\n", results.GetDuration(testName))
+		chromedptest.Printf("----------------------------------------------------\n")
+		cancelAllocator()
+		dpCancel()
+		cancel()
 	}
 
-	fmt.Println("----------------------------------------------------")
-	fmt.Printf("Duration: %v\n", time.Since(testStartTime))
-	fmt.Printf("SUCCESS : %v\n", s)
-	fmt.Printf("FAIL    : %v\n", f)
+	chromedptest.Printf("----------------------------------------------------\n")
+	chromedptest.Printf("Duration: %v\n", time.Since(testStartTime))
+	chromedptest.Printf("SUCCESS : %v\n", s)
+	chromedptest.Printf("FAIL    : %v\n", f)
 
 	results.GetFailed().PrintErrors()
 

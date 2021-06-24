@@ -28,6 +28,7 @@ func addTitle(screenshotFilename, targetFilename string, title Title) error {
 	if err != nil {
 		return err
 	}
+
 	img, err := png.Decode(bytes.NewBuffer(b))
 	if err != nil {
 		return err

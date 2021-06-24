@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/Oppodelldog/chromedp-test"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -43,16 +42,16 @@ func getDebugURL() string {
 		return ""
 	}
 
-	fmt.Printf("REMOTE_CHROME_HOST is set: %v\n", v)
+	chromedptest.Printf("REMOTE_CHROME_HOST is set: %v\n", v)
 	parts := strings.SplitN(v, ":", 2)
 	host := parts[0]
 	port := parts[1]
 
 	addr, err := net.LookupIP(host)
 	if err != nil {
-		log.Fatal("Unknown host")
+		panic("unknown host")
 	} else {
-		fmt.Printf("looked up IP address for chrome: %v\n", addr)
+		chromedptest.Printf("looked up IP address for chrome: %v\n", addr)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), chromeDebugURLTimeout)
@@ -61,18 +60,18 @@ func getDebugURL() string {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr[0].String()+":"+port+"/json/version", nil)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}()
 
@@ -80,12 +79,15 @@ func getDebugURL() string {
 
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
 	if err := json.NewDecoder(bytes.NewBuffer(bodyBytes)).Decode(&result); err != nil {
-		fmt.Println(string(bodyBytes))
-		log.Fatal(err)
+		panic(err)
 	}
 
-	wsAddress := result["webSocketDebuggerUrl"].(string)
-	fmt.Printf("got ws remote address: %v\n", wsAddress)
+	wsAddress, ok := result["webSocketDebuggerUrl"].(string)
+	if ok {
+		chromedptest.Printf("got ws remote address: %v\n", wsAddress)
 
-	return wsAddress
+		return wsAddress
+	}
+
+	return ""
 }

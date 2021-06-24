@@ -2,9 +2,8 @@ package runner
 
 import (
 	"context"
-	"fmt"
+	"github.com/Oppodelldog/chromedp-test"
 	"io/ioutil"
-	"log"
 	"math"
 	"os"
 	"path"
@@ -27,7 +26,7 @@ func takeFailureScreenshot(ctx context.Context, dir, testID string, err error) {
 
 		errScreenShot := chromedp.Run(ctx, Screenshot(fileName))
 		if errScreenShot != nil {
-			fmt.Printf("COULD NOT TAKE SCREENSHOT: %v", errScreenShot)
+			chromedptest.Printf("COULD NOT TAKE SCREENSHOT: %v", errScreenShot)
 		}
 	}
 }
@@ -65,26 +64,26 @@ func take(ctx context.Context, targetFile string) {
 	var buf []byte
 
 	if err := chromedp.Run(ctx, fullScreenshot(quality, &buf)); err != nil {
-		log.Fatalf("error taking full screenshot: %v", err)
+		chromedptest.Printf("error taking full screenshot: %v", err)
 	}
 
 	p := filepath.Dir(targetFile)
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		err = os.Mkdir(p, permDir)
 		if err != nil {
-			log.Fatalf("error creating screenshot dir: %v", err)
+			chromedptest.Printf("error creating screenshot dir: %v", err)
 		}
 	}
 
 	if err := ioutil.WriteFile(targetFile, buf, permFile); err != nil {
-		log.Fatalf("error writing screenshot file: %v", err)
+		chromedptest.Printf("error writing screenshot file: %v", err)
 	}
 }
 
 func fullScreenshot(quality int64, res *[]byte) chromedp.Tasks {
 	return chromedp.Tasks{
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			_, _, contentSize, err := page.GetLayoutMetrics().Do(ctx)
+			_, _, _, _, _, contentSize, err := page.GetLayoutMetrics().Do(ctx)
 			if err != nil {
 				return err
 			}

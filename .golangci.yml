@@ -22,4 +22,5 @@ linters:
     - gochecknoglobals
     - testpackage
     - gofumpt
+    - forbidigo
   fast: false

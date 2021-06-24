@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"github.com/Oppodelldog/chromedp-test"
 	"image"
 	"image/color/palette"
 	"image/draw"
@@ -24,7 +25,7 @@ func createGIF(suiteID int, suiteName, testName string, screenshotOptions Screen
 	)
 
 	if len(origImages) == 0 {
-		fmt.Printf("Did not find any png files for %s\n", name)
+		chromedptest.Printf("Did not find any png files for %s\n", name)
 
 		return
 	}

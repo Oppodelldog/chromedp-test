@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"fmt"
+	"github.com/Oppodelldog/chromedp-test"
 	"strconv"
 	"time"
 )
@@ -43,7 +43,7 @@ func (r testResults) PrintErrors() {
 		return
 	}
 
-	fmt.Println("ERRORS:")
+	chromedptest.Printf("ERRORS:\n")
 
 	maxLength := r.getMaxNameLength()
 
@@ -52,7 +52,7 @@ func (r testResults) PrintErrors() {
 			continue
 		}
 
-		fmt.Printf("%"+strconv.Itoa(maxLength)+"s: %v\n", testName, result.err)
+		chromedptest.Printf("%"+strconv.Itoa(maxLength)+"s: %v\n", testName, result.err)
 	}
 }
 
