@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/Oppodelldog/chromedp-test"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -12,12 +11,14 @@ import (
 	"strings"
 	"time"
 
+	chromedptest "github.com/Oppodelldog/chromedp-test"
+
 	"github.com/chromedp/chromedp"
 )
 
 const chromeDebugURLTimeout = time.Second * 5
 
-func getAllocator() (context.Context, context.CancelFunc) {
+func getAllocator(ctx context.Context) (context.Context, context.CancelFunc) {
 	var (
 		allocCtx        context.Context
 		cancel          context.CancelFunc
@@ -25,12 +26,12 @@ func getAllocator() (context.Context, context.CancelFunc) {
 	)
 
 	if remoteChromeURL != "" {
-		allocCtx, cancel = chromedp.NewRemoteAllocator(context.Background(), remoteChromeURL)
+		allocCtx, cancel = chromedp.NewRemoteAllocator(ctx, remoteChromeURL)
 	} else {
 		opts := append(chromedp.DefaultExecAllocatorOptions[:],
 			chromedp.Flag("ignore-certificate-errors", "1"),
 		)
-		allocCtx, cancel = chromedp.NewExecAllocator(context.Background(), opts...)
+		allocCtx, cancel = chromedp.NewExecAllocator(ctx, opts...)
 	}
 
 	return allocCtx, cancel

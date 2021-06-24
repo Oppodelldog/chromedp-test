@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"github.com/Oppodelldog/chromedp-test"
 	"image"
 	"image/color/palette"
 	"image/draw"
@@ -13,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 )
 
 func createGIF(suiteID int, suiteName, testName string, screenshotOptions ScreenshotOptions) {

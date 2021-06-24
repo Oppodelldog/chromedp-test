@@ -1,9 +1,10 @@
 package runner
 
 import (
-	"github.com/Oppodelldog/chromedp-test"
 	"strconv"
 	"time"
+
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 )
 
 type testResult struct {

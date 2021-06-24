@@ -2,23 +2,21 @@ package runner
 
 import (
 	"bytes"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/inconsolata"
+	"golang.org/x/image/math/fixed"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
 	"io/ioutil"
 	"os"
-	"strconv"
-
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/inconsolata"
-	"golang.org/x/image/math/fixed"
 )
 
 type Title struct {
 	SuiteName  string
 	CaseName   string
-	GroupName  string
+	Error      string
 	ActionName string
 	Step       int
 }
@@ -34,7 +32,7 @@ func addTitle(screenshotFilename, targetFilename string, title Title) error {
 		return err
 	}
 
-	const titleHeight = 150
+	const titleHeight = 80
 
 	r := img.Bounds()
 	r.Min.Y = titleHeight
@@ -48,7 +46,7 @@ func addTitle(screenshotFilename, targetFilename string, title Title) error {
 
 	var (
 		o  = 10
-		y  = 170
+		y  = 100
 		ws = 10
 		w  = 0
 	)
@@ -61,16 +59,8 @@ func addTitle(screenshotFilename, targetFilename string, title Title) error {
 	addText(newImg, o+w+ws, y, title.CaseName)
 
 	o, w, y = 10, 0, y+24
-	w += addBoldText(newImg, o+w, y, "Group:")
-	addText(newImg, o+w+ws, y, title.GroupName)
-
-	o, w, y = 10, 0, y+24
-	w += addBoldText(newImg, o+w, y, "Action:")
-	addText(newImg, o+w+ws, y, title.ActionName)
-
-	o, w, y = 10, 0, y+24
-	w += addBoldText(newImg, o+w, y, "Step:")
-	addText(newImg, o+w+ws, y, strconv.Itoa(title.Step))
+	w += addBoldText(newImg, o+w, y, "Error:")
+	addText(newImg, o+w+ws, y, title.Error)
 
 	draw.Draw(newImg, r, img, image.Point{X: 0, Y: -titleHeight}, draw.Src)
 

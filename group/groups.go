@@ -2,159 +2,56 @@ package group
 
 import (
 	"context"
-	"fmt"
-	"github.com/Oppodelldog/chromedp-test"
-	"path"
-	"strings"
+	"time"
 
-	"github.com/Oppodelldog/chromedp-test/runner"
 	"github.com/chromedp/chromedp"
 )
 
-// New creates a group of chromedp.Action that are grouped by a title.
+type listAction struct {
+	title   string
+	timeout time.Duration
+	actions []chromedp.Action
+}
+
+// New creates a group of chromedp.Action that are grouped by actions title.
 func New(title string, action ...chromedp.Action) chromedp.Action {
-	return groupAction{
-		title:        title,
-		simpleAction: screenshot(title, action...),
-	}
+	return newActions(0, title, action)
 }
 
-type groupAction struct {
-	title        string
-	simpleAction chromedp.Action
+// WithTimeout creates a group of chromedp.Action where each action has the given timeout to succeed.
+func WithTimeout(timeout time.Duration, title string, action ...chromedp.Action) chromedp.Action {
+	return newActions(timeout, title, action)
 }
 
-func (g groupAction) Do(ctx context.Context) error {
-	testContext := runner.MustGetTestContext(ctx)
-	testContext.GroupName = g.title
-	runner.SetTestContextData(ctx, testContext)
-
-	err := Text(g.title).Do(ctx)
-	if err != nil {
-		return err
-	}
-
-	return g.simpleAction.Do(ctx)
-}
-
-func screenshot(title string, action ...chromedp.Action) screenshotAction {
-	return screenshotAction{
+func newActions(timeout time.Duration, title string, action []chromedp.Action) chromedp.Action {
+	return listAction{
 		title:   title,
+		timeout: timeout,
 		actions: action,
 	}
 }
 
-type screenshotAction struct {
-	title   string
-	actions []chromedp.Action
-}
+func (a listAction) Do(ctx context.Context) error {
+	var err error
 
-func (s screenshotAction) Do(ctx context.Context) error {
-	var (
-		err                 error
-		testContext, newCtx = increaseTestContextStep(ctx)
-		screenshotOptions   = testContext.ScreenshotOptions
-	)
+	for i := range a.actions {
+		if a.timeout > 0 {
+			err = doWithTimeout(ctx, a.timeout, a.actions[i])
+		} else {
+			err = a.actions[i].Do(ctx)
+		}
 
-	if screenshotOptions.BeforeGroup {
-		testContext.ActionName = "before"
-		runner.SetTestContextData(ctx, testContext)
-
-		err = runner.Screenshot(screenshotFilename(s.title, testContext, "1-before")).Do(newCtx)
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, action := range s.actions {
-		testContext, newCtx := increaseTestContextStep(ctx)
-		testContext.ActionName = fmt.Sprintf("before %T", action)
-		runner.SetTestContextData(ctx, testContext)
-
-		if screenshotOptions.BeforeAction {
-			err = runner.Screenshot(screenshotFilename(s.title, testContext, testContext.ActionName+"-before")).Do(newCtx)
-			if err != nil {
-				chromedptest.Printf("err in screenshot: %v", err.Error())
-
-				return nil
-			}
-		}
-
-		err = action.Do(newCtx)
-		if err != nil {
-			break
-		}
-
-		if screenshotOptions.AfterAction {
-			testContext.ActionName = fmt.Sprintf("after %T", action)
-			runner.SetTestContextData(ctx, testContext)
-			err = runner.Screenshot(screenshotFilename(s.title, testContext, testContext.ActionName+"-before")).Do(newCtx)
-			if err != nil {
-				chromedptest.Printf("err in screenshot: %v", err.Error())
-
-				return nil
-			}
-		}
-	}
-
-	if screenshotOptions.AfterGroup {
-		testContext.ActionName = "after"
-		runner.SetTestContextData(ctx, testContext)
-
-		err = runner.Screenshot(screenshotFilename(s.title, testContext, "2-after")).Do(newCtx)
-		if err != nil {
-			chromedptest.Printf("err in screenshot: %v", err.Error())
-
-			return nil
-		}
-	}
-
-	return err
+	return nil
 }
 
-func screenshotFilename(title string, testContext runner.TestContext, postfix string) string {
-	return path.Join(
-		testContext.ScreenshotOptions.OutDir,
-		normalizeFilename(fmt.Sprintf("%v__%s_%s_%v-%s-%s.png",
-			testContext.ID,
-			testContext.SuiteName,
-			testContext.TestName,
-			testContext.TestStep,
-			title,
-			postfix),
-		),
-	)
-}
+func doWithTimeout(ctx context.Context, timeout time.Duration, a chromedp.Action) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-func normalizeFilename(x string) string {
-	var y strings.Builder
-
-	for _, r := range x {
-		if func(r rune) bool {
-			switch {
-			case r == '.' || r == '-' || r == '_':
-				return true
-			case '0' <= r && r <= '9':
-				return true
-			case 'a' <= r && r <= 'z':
-				return true
-			case 'A' <= r && r <= 'Z':
-				return true
-			}
-
-			return false
-		}(r) {
-			y.WriteRune(r)
-		}
-	}
-
-	return y.String()
-}
-
-func increaseTestContextStep(ctx context.Context) (runner.TestContext, context.Context) {
-	testContext := runner.MustGetTestContext(ctx)
-	testContext.TestStep++
-	ctx = runner.SetTestContextData(ctx, testContext)
-
-	return testContext, ctx
+	return a.Do(ctxTimeout)
 }

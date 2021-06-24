@@ -2,13 +2,15 @@ package runner
 
 import (
 	"context"
-	"github.com/Oppodelldog/chromedp-test"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
+	"github.com/Oppodelldog/chromedp-test"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 
@@ -22,11 +24,14 @@ const permFile = 0600
 
 func takeFailureScreenshot(ctx context.Context, dir, testID string, err error) {
 	if err != nil {
-		var fileName = path.Join(dir, "FAIL-"+testID+".png")
+		var (
+			suiteNormalized = strings.ReplaceAll(MustGetTestContext(ctx).SuiteName, " ", "_")
+			fileName        = path.Join(dir, fmt.Sprintf("%s-%v-FAIL.png", suiteNormalized, testID))
+		)
 
 		errScreenShot := chromedp.Run(ctx, Screenshot(fileName))
 		if errScreenShot != nil {
-			chromedptest.Printf("COULD NOT TAKE SCREENSHOT: %v", errScreenShot)
+			chromedptest.Printf("could not take screenshot: %v", errScreenShot)
 		}
 	}
 }
@@ -51,11 +56,9 @@ func (a takeScreenShotAction) Do(ctx context.Context) error {
 		a.targetFile,
 		a.targetFile,
 		Title{
-			SuiteName:  testContext.SuiteName,
-			CaseName:   testContext.TestName,
-			GroupName:  testContext.GroupName,
-			ActionName: testContext.ActionName,
-			Step:       testContext.TestStep,
+			SuiteName: testContext.SuiteName,
+			CaseName:  testContext.TestName,
+			Error:     testContext.Error,
 		},
 	)
 }

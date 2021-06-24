@@ -2,11 +2,10 @@ package runner
 
 import (
 	"context"
-	"errors"
-	"github.com/Oppodelldog/chromedp-test"
 	"sort"
 	"time"
 
+	"github.com/Oppodelldog/chromedp-test"
 	"github.com/chromedp/chromedp"
 )
 
@@ -31,8 +30,6 @@ type Options struct {
 type ScreenshotOptions struct {
 	OutDir         string
 	OnFailure      bool
-	BeforeTestCase bool
-	AfterTestCase  bool
 	BeforeGroup    bool
 	AfterGroup     bool
 	BeforeAction   bool
@@ -47,7 +44,7 @@ type PostProcessingOptions struct {
 }
 
 // Suites runs the given suites.
-func Suites(url string, suites TestSuites, opts Options) {
+func Suites(ctx context.Context, url string, suites TestSuites, opts Options) {
 	suiteNames := getExecutionSuiteNames(suites, opts)
 
 	for id, suiteName := range suiteNames {
@@ -59,7 +56,7 @@ func Suites(url string, suites TestSuites, opts Options) {
 		chromedptest.Printf("Test runSuite: %s\n", suiteName)
 		chromedptest.Printf("----------------------------------------------------\n")
 
-		if !runSuite(id, url, suiteName, suite, opts) {
+		if !runSuite(ctx, id, url, suiteName, suite, opts) {
 			chromedptest.Printf("suite failed, aborting\n")
 
 			break
@@ -72,9 +69,8 @@ type TestContext struct {
 	SuiteName         string
 	TestName          string
 	GroupName         string
-	ActionName        string
-	TestStep          int
 	ScreenshotOptions ScreenshotOptions
+	Error             string
 }
 
 type testContextKey struct{}
@@ -87,13 +83,18 @@ func SetTestContextData(ctx context.Context, testContext TestContext) context.Co
 	return context.WithValue(ctx, testContextKey{}, testContext)
 }
 
-func runSuite(id int, url, suiteName string, suite TestSuite, opts Options) bool {
+func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuite, opts Options) bool {
 	testStartTime := time.Now()
 	s := 0
 	f := 0
 
 	results := make(testResults, len(suite))
 	testNames := getExecutionTestNames(suite, opts)
+
+	alloCtx, cancelAllocator := getAllocator(ctx)
+	defer cancelAllocator()
+	testCtx, dpCancel := chromedp.NewContext(alloCtx)
+	defer dpCancel()
 
 	for testIdx, testName := range testNames {
 		testCase := suite[testName]
@@ -104,9 +105,6 @@ func runSuite(id int, url, suiteName string, suite TestSuite, opts Options) bool
 
 		results.Start(testName)
 
-		alloCtx, cancelAllocator := getAllocator()
-		testCtx, dpCancel := chromedp.NewContext(alloCtx)
-
 		testCtxData := TestContext{
 			ID:                ((id + 1) * 1000) + (testIdx + 1),
 			SuiteName:         suiteName,
@@ -114,18 +112,16 @@ func runSuite(id int, url, suiteName string, suite TestSuite, opts Options) bool
 			ScreenshotOptions: opts.Screenshot,
 		}
 		testCtx = SetTestContextData(testCtx, testCtxData)
-		to := opts.Timeout
-		if to == 0 {
-			to = time.Minute
-		}
-		ctx, cancel := context.WithTimeout(testCtx, to)
-		err := testCase(ctx, url)
+
+		err := testCase(testCtx, url)
 		if err != nil {
 			f++
 
 			results.End(testName, false, err)
-			if opts.Screenshot.OnFailure && err != nil && !errors.Is(err, context.DeadlineExceeded) {
-				takeFailureScreenshot(ctx, opts.Screenshot.OutDir, testName, err)
+			if opts.Screenshot.OnFailure && err != nil {
+				testCtxData.Error = err.Error()
+				testCtx = SetTestContextData(testCtx, testCtxData)
+				takeFailureScreenshot(testCtx, opts.Screenshot.OutDir, testName, err)
 			}
 		} else {
 			s++
@@ -146,9 +142,6 @@ func runSuite(id int, url, suiteName string, suite TestSuite, opts Options) bool
 		chromedptest.Printf("Success : %v\n", results.GetSuccess(testName))
 		chromedptest.Printf("Duration: %v\n", results.GetDuration(testName))
 		chromedptest.Printf("----------------------------------------------------\n")
-		cancelAllocator()
-		dpCancel()
-		cancel()
 	}
 
 	chromedptest.Printf("----------------------------------------------------\n")

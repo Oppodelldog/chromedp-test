@@ -2,11 +2,12 @@ package group
 
 import (
 	"context"
-	"github.com/Oppodelldog/chromedp-test"
+
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 	"github.com/chromedp/chromedp"
 )
 
-// Text writes a text to the output log.
+// Text writes actions text to the output log.
 func Text(text string) chromedp.Action {
 	return logAction{
 		text: text,
