@@ -2,6 +2,7 @@ package group
 
 import (
 	"context"
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -33,6 +34,8 @@ func newActions(timeout time.Duration, title string, action []chromedp.Action) c
 
 func (a listAction) Do(ctx context.Context) error {
 	var err error
+
+	chromedptest.Printf(a.title)
 
 	for i := range a.actions {
 		if a.timeout > 0 {
