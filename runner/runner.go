@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"log"
 	"sort"
 	"time"
 
@@ -91,7 +90,9 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 	defer cancelAllocator()
 
 	testCtx, dpCancel := chromedp.NewContext(alloCtx,
-		chromedp.WithErrorf(log.Printf),
+		chromedp.WithDebugf(chromedptest.Printf),
+		chromedp.WithLogf(chromedptest.Printf),
+		chromedp.WithErrorf(chromedptest.Printf),
 	)
 	defer dpCancel()
 
