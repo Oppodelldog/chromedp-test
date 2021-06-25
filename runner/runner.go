@@ -23,17 +23,12 @@ type Options struct {
 	SortSuites bool
 	SortTests  bool
 	Screenshot ScreenshotOptions
-	Timeout    time.Duration
 }
 
 // ScreenshotOptions controls screenshot behavior.
 type ScreenshotOptions struct {
 	OutDir         string
 	OnFailure      bool
-	BeforeGroup    bool
-	AfterGroup     bool
-	BeforeAction   bool
-	AfterAction    bool
 	PostProcessing PostProcessingOptions
 }
 
