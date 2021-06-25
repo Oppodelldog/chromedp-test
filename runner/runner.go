@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"log"
 	"sort"
 	"time"
 
@@ -88,7 +89,10 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 
 	alloCtx, cancelAllocator := getAllocator(ctx)
 	defer cancelAllocator()
-	testCtx, dpCancel := chromedp.NewContext(alloCtx)
+
+	testCtx, dpCancel := chromedp.NewContext(alloCtx,
+		chromedp.WithErrorf(log.Printf),
+	)
 	defer dpCancel()
 
 	for testIdx, testName := range testNames {
