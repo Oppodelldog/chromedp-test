@@ -35,7 +35,7 @@ func newActions(timeout time.Duration, title string, action []chromedp.Action) c
 func (a listAction) Do(ctx context.Context) error {
 	var err error
 
-	chromedptest.Printf(a.title)
+	chromedptest.Printf("%s\n", a.title)
 
 	for i := range a.actions {
 		if a.timeout > 0 {
