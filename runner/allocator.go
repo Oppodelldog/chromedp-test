@@ -38,6 +38,9 @@ func getAllocator(ctx context.Context) (context.Context, context.CancelFunc) {
 }
 
 func getDebugURL() string {
+	// start chrome with remote debugging port set
+	// example: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+	// to connect to that chrome instance set REMOTE_CHROME_HOST=127.0.0.1:9222
 	v, ok := os.LookupEnv("REMOTE_CHROME_HOST")
 	if !ok {
 		return ""
