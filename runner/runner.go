@@ -90,9 +90,9 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 	defer cancelAllocator()
 
 	testCtx, dpCancel := chromedp.NewContext(alloCtx,
-		chromedp.WithDebugf(chromedptest.Printf),
-		chromedp.WithLogf(chromedptest.Printf),
-		chromedp.WithErrorf(chromedptest.Printf),
+		chromedp.WithDebugf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
+		chromedp.WithLogf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
+		chromedp.WithErrorf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
 	)
 	defer dpCancel()
 
