@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"github.com/chromedp/cdproto/runtime"
 	"sort"
 	"time"
 
@@ -23,6 +24,10 @@ type Options struct {
 	SortSuites bool
 	SortTests  bool
 	Screenshot ScreenshotOptions
+	LogError   bool
+	LogWarning bool
+	LogInfo    bool
+	LogConsole bool
 }
 
 // ScreenshotOptions controls screenshot behavior.
@@ -89,11 +94,43 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 	alloCtx, cancelAllocator := getAllocator(ctx)
 	defer cancelAllocator()
 
-	testCtx, dpCancel := chromedp.NewContext(alloCtx,
-		chromedp.WithDebugf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
-		chromedp.WithLogf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
-		chromedp.WithErrorf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
-	)
+	var contextOpts []chromedp.ContextOption
+
+	if opts.LogError {
+		contextOpts = append(
+			contextOpts,
+			chromedp.WithDebugf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
+		)
+	}
+
+	if opts.LogWarning {
+		contextOpts = append(
+			contextOpts,
+			chromedp.WithLogf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
+		)
+	}
+
+	if opts.LogInfo {
+		contextOpts = append(
+			contextOpts,
+			chromedp.WithErrorf(func(s string, i ...interface{}) { chromedptest.Printf(s+"\n", i...) }),
+		)
+	}
+
+	testCtx, dpCancel := chromedp.NewContext(alloCtx, contextOpts...)
+
+	if opts.LogConsole {
+		chromedp.ListenTarget(testCtx, func(ev interface{}) {
+			switch ev := ev.(type) {
+			case *runtime.EventConsoleAPICalled:
+				chromedptest.Printf("console.%s call: ", ev.Type)
+				for _, arg := range ev.Args {
+					chromedptest.Printf("%s - %s | ", arg.Type, arg.Value)
+				}
+				chromedptest.Printf("\n")
+			}
+		})
+	}
 	defer dpCancel()
 
 	for testIdx, testName := range testNames {
