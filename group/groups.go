@@ -2,8 +2,9 @@ package group
 
 import (
 	"context"
-	chromedptest "github.com/Oppodelldog/chromedp-test"
 	"time"
+
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 
 	"github.com/chromedp/chromedp"
 )

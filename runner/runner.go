@@ -2,11 +2,12 @@ package runner
 
 import (
 	"context"
-	"github.com/chromedp/cdproto/runtime"
 	"sort"
 	"time"
 
-	"github.com/Oppodelldog/chromedp-test"
+	"github.com/chromedp/cdproto/runtime"
+
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 	"github.com/chromedp/chromedp"
 )
 
@@ -118,11 +119,11 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 	}
 
 	testCtx, dpCancel := chromedp.NewContext(alloCtx, contextOpts...)
+	defer dpCancel()
 
 	if opts.LogConsole {
 		chromedp.ListenTarget(testCtx, func(ev interface{}) {
-			switch ev := ev.(type) {
-			case *runtime.EventConsoleAPICalled:
+			if ev, ok := ev.(*runtime.EventConsoleAPICalled); ok {
 				chromedptest.Printf("console.%s call: ", ev.Type)
 				for _, arg := range ev.Args {
 					chromedptest.Printf("%s - %s | ", arg.Type, arg.Value)
@@ -131,7 +132,6 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 			}
 		})
 	}
-	defer dpCancel()
 
 	for testIdx, testName := range testNames {
 		testCase := suite[testName]
@@ -155,6 +155,7 @@ func runSuite(ctx context.Context, id int, url, suiteName string, suite TestSuit
 			f++
 
 			results.End(testName, false, err)
+
 			if opts.Screenshot.OnFailure && err != nil {
 				testCtxData.Error = err.Error()
 				testCtx = SetTestContextData(testCtx, testCtxData)

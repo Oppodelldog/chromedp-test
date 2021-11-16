@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Oppodelldog/chromedp-test"
+	chromedptest "github.com/Oppodelldog/chromedp-test"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 

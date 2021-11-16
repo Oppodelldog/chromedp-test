@@ -2,15 +2,16 @@ package runner
 
 import (
 	"bytes"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/inconsolata"
-	"golang.org/x/image/math/fixed"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
 	"io/ioutil"
 	"os"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/inconsolata"
+	"golang.org/x/image/math/fixed"
 )
 
 type Title struct {
